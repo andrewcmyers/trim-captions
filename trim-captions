@@ -58,6 +58,12 @@ sub line {
     return $result;
 }
 
+sub trim {
+    (my $s) = @_;
+    $s =~ s/\s+\Z//;
+    return $s;
+}
+
 sub min {
     (my $a, my $b) = @_;
     return ($a < $b) ? $a : $b;
@@ -95,19 +101,13 @@ if (line ne "WEBVTT\r\n" || line ne "\r\n") {
 }
 my $index;
 
-sub trim {
-    (my $s) = @_;
-    $s =~ s/\s+\Z//;
-    return $s;
-}
-
 if ($output_mode eq 'VTT') {
     print "WEBVTT\r\n\r\n";
 }
 
 my $j = 1; # final index
 
-while ($index = &trim(&line())) {
+while ($index = &trim(&line)) {
     (my $start, my $end) = parse_range(trim(line));
     my $text = &trim(&line);
     if (&trim(&line)) {
