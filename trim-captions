@@ -1,0 +1,158 @@
+#!/usr/bin/perl
+
+use strict;
+
+my $file;
+my @deletions;
+
+my @output_modes = ( 'VTT', 'SRT' );
+my $output_mode = 'SRT';
+
+sub usage {
+    print "Usage: $0 [-d <start>-<end>] ... [input-file]\n";
+    exit 1;
+}
+
+sub parse_range {
+    (my $r) = @_;
+    (my $start, my $ignore, my $end) = ($r =~ m/\A([^ ]*)( --> |-)([^ ]*)\Z/);
+    # print "parsed range $start - $end \n"; 
+    return (parse_time($start), parse_time($end))
+}
+
+sub parse_time {
+    (my $timestamp) = @_;
+    if ($timestamp =~ m/\A([0-9][0-9]):([0-9][0-9]):([0-9.]*)\Z/) { # hh:mm:ss.sss
+        (my $h, my $m, my $s) = $timestamp =~ m/\A([0-9][0-9]):([0-9][0-9]):([0-9.]*)\Z/;
+    # print "  h=$h, m=$m, s=$s\n";
+        my $t = $h * 3600 + $m * 60 + $s;
+    # print "  time: $t\n";
+        return $t;
+    } elsif ($timestamp =~ m/\A([0-9][0-9]):([0-9.]*)\Z/) { #mm:ss.sss
+        (my $m, my $s) = $timestamp =~ m/\A([0-9][0-9]):([0-9.]*)\Z/;
+        return $m * 60 + $s;
+    } else { #ss.sss
+        return $timestamp + 0;
+    }
+}
+
+sub unparse_time {
+    (my $t, my $mode) = @_;
+    my $h = $t/3600;
+    my $m = ($t % 3600) / 60;
+    my $s = ($t % 60);
+    if ($output_mode eq 'VTT') {
+        return sprintf "%02d:%02d:%06.3f", $h, $m, $s;
+    } elsif ($output_mode eq 'SRT') {
+        my $sec = sprintf "%06.3f", $s;
+        $sec =~ s/\./,/;
+        return sprintf "%02d:%02d:%s", $h, $m, $sec;
+    }
+}
+
+sub unparse_range {
+    (my $t1, my $t2) = @_;
+    return unparse_time($t1), " --> ", unparse_time($t2)
+}
+
+sub line {
+    my $result = $file ? <INPUT> : <STDIN>;
+    #print "read: " . $result;
+    return $result;
+}
+
+sub min {
+    (my $a, my $b) = @_;
+    return ($a < $b) ? $a : $b;
+}
+sub max {
+    (my $a, my $b) = @_;
+    return ($a > $b) ? $a : $b;
+}
+
+#### main program
+
+while ($#ARGV >= 0) {
+    my $opt = shift @ARGV;
+    if ($opt =~ m/^-/) {
+        # print "saw option: $opt\n";
+        if ($opt =~ m/^-d/) {
+            my $range = ($opt eq '-d') ? shift @ARGV : substr($opt, 2);
+            # print "delete range: $range\n";
+            (my $start, my $end) = &parse_range($range);
+            # print "delete range: $start - $end\n";     
+            push @deletions, [$start, $end];
+        } else {
+            usage();
+        }
+    } else {
+        last
+    }
+}
+
+if ($#ARGV >= 0) {
+    $file = shift $ARGV;
+    open (INPUT, $file);
+}
+
+if (line ne "WEBVTT\r\n" || line ne "\r\n") {
+    print STDERR "Not a VTT file, must start with WEBVTT\n";
+    exit 1
+}
+my $index;
+
+sub trim {
+    (my $s) = @_;
+    $s =~ s/\s+\Z//;
+    return $s;
+}
+
+if ($output_mode eq 'VTT') {
+    print "WEBVTT\r\n\r\n";
+}
+
+my $j = 1; # final index
+
+while ($index = &trim(&line())) {
+    (my $start, my $end) = parse_range(trim(line));
+    my $text = &trim(&line);
+    if (&trim(&line)) {
+        print "Expected blank line in caption $index\n";
+        exit 1
+    }
+
+    # print "original: ", &unparse_range($start, $end), "\r\n";
+    my $removed_time = 0;
+    foreach my $range (@deletions) {
+        (my $ds, my $de) = @{$range};
+        # print "Removing $ds - $de\n";
+        if ($ds < $start) { $removed_time += ($de - $ds) }
+        if ($de > $start && $ds < $end) { #overlap
+            if ($de < $end && $ds > $start) {
+                $end -= ($de - $ds); # shorten the caption period
+            } elsif ($de > $end && $ds < $start) {
+                # print "Caption entirely deleted";
+                next
+            } elsif ($ds > $start) {
+                $end = $ds;
+            } else {
+                $start = $de;
+            }
+        }
+    }
+    # print "Shifting $index earlier by $removed_time\n";
+    $start -= $removed_time;
+    $end -= $removed_time;
+    if ($start < 0) {
+        $start = 0;
+        # print "Trimming beginning of caption range\n";
+    }
+    if ($end > 0) {
+        print "$j\r\n";
+        print &unparse_range($start, $end), "\r\n";
+        print $text, "\r\n\r\n";
+        $j++;
+    } else {
+        # print "Caption is before preserved region entirely\n";
+    }
+}
