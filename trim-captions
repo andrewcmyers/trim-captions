@@ -22,14 +22,17 @@ sub parse_range {
 
 sub parse_time {
     (my $timestamp) = @_;
-    if ($timestamp =~ m/\A([0-9][0-9]):([0-9][0-9]):([0-9.]*)\Z/) { # hh:mm:ss.sss
-        (my $h, my $m, my $s) = $timestamp =~ m/\A([0-9][0-9]):([0-9][0-9]):([0-9.]*)\Z/;
+    my $h, my $m, my $s;
+    if (($h, $m, $s) =
+        $timestamp =~ m/\A([0-9]+):([0-9]+):([0-9.]*)\Z/) {
+#       print "hh:mm:ss timestamp: ", $timestamp, "\n";
         my $t = $h * 3600 + $m * 60 + $s;
         return $t;
-    } elsif ($timestamp =~ m/\A([0-9][0-9]):([0-9.]*)\Z/) { #mm:ss.sss
-        (my $m, my $s) = $timestamp =~ m/\A([0-9][0-9]):([0-9.]*)\Z/;
+    } elsif (($m, $s) = $timestamp =~ m/\A([0-9]+):([0-9.]*)\Z/) { #mm:ss.sss
+#       print "mm:ss timestamp: ", $timestamp, "\n";
         return $m * 60 + $s;
     } else { #ss.sss
+#       print "ss timestamp: ", $timestamp, "\n";
         return $timestamp + 0;
     }
 }
@@ -38,7 +41,8 @@ sub unparse_time {
     (my $t, my $mode) = @_;
     my $h = $t/3600;
     my $m = ($t % 3600) / 60;
-    my $s = ($t % 60);
+    my $s = $t;
+    $s -= 60 * int($t/60);
     if ($output_mode eq 'VTT') {
         return sprintf "%02d:%02d:%06.3f", $h, $m, $s;
     } elsif ($output_mode eq 'SRT') {
@@ -95,7 +99,7 @@ if ($#ARGV >= 0) {
     open (INPUT, $file);
 }
 
-if (line ne "WEBVTT\r\n" || line ne "\r\n") {
+if (&line ne "WEBVTT\r\n" || line ne "\r\n") {
     print STDERR "Not a VTT file, must start with WEBVTT\n";
     exit 1
 }
