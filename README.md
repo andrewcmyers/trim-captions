@@ -9,4 +9,4 @@ This lets you record on Zoom and edit video in Kaltura while keeping the higher-
 trim-captions -d 0-38.4 -d 2:34-2:51.40 Zoom.vtt > Zoom.srt
 ```
 
-This command converts `Zoom.vtt` to produce `Zoom.srt`, deleting the first 38.4 seconds and also a 7.4 second segment starting at 2:34.
+This command converts `Zoom.vtt` to produce `Zoom.srt`, deleting the first 38.4 seconds and also a 7.4 second segment starting at 2:34. Timestamps can be given in seconds (ss.sss), or minutes + seconds (mm:ss.sss) or hours + minutes + seconds (hh:mm:ss.sss).
