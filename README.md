@@ -1,5 +1,5 @@
 # trim-captions
-A script to convert Zoom captions into Kaltura captions while supporting video editing.
+A script to convert Zoom captions into SRT captions supported by Kaltura, while supporting video editing.
 
 This lets you record on Zoom and edit video in Kaltura while keeping the higher-quality Zoom captions. If you delete video segments in Kaltura then you tell the script the timestamps (with the `-d` option); it removes captions and adjusts caption timestamps accordingly.
 
